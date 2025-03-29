@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Excel Viewer</title>
+    <style>
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #ffffff;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin-top: 15%;
+            margin-bottom: 15%;
+            margin-left: 15px;
+            margin-right: 15px;
+        }
+
+        table {
+            border-collapse: collapse;
+            /* width: 100%; */
+            /* height: 100%; */
+            table-layout: fixed;
+            transform-origin: center;
+        }
+
+        th,
+        td {
+            border: 0;
+            text-align: center;
+            overflow: hidden;
+            color: #000;
+            transition: font-size 0.2s ease;
+        }
+
+        th {
+            background-color: #00ff2a;
+            font-weight: bold;
+        }
+
+        .pagination-container {
+            display: none;
+            /* width: 100%; */
+            /* height: 100%; */
+        }
+
+        .pagination-container.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: scale(var(--scale, 1));
+        }
+
+        img {
+            /* max-width: 100%;
+            max-height: 100%; */
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+    <input hidden id="pages" value="{{pages}}">
+    <div class="container" id="sheet-container">
+        <!-- Dynamically loaded sheets will be added here -->
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const paginationDuration = 5;
+            const container = document.getElementById("sheet-container");
+            const pagesInput = document
+                .getElementById("pages")
+                .value.replace(/[\[\]'"]/g, '')
+                .split(',')
+                .map(Number);
+            let tempSheet = [];
+            let containers = [];
+            let currentIndex = 0;
+            let fetchResponse = [];
+            let currentTimeout = null;
+            const defaultDuration = 5;
+
+            console.log("Page durations:", pagesInput);
+
+            /**
+             * Dynamically calculate scale for resizing
+             */
+            function adjustScale(container) {
+                if (container) {
+                    const tables = container.querySelectorAll("table");
+
+                    tables.forEach(table => {
+                        const rows = table.rows.length;
+                        const columns = table.rows[0]?.cells.length || 1;
+
+                        const cellWidth = (window.innerWidth / columns) * 0.9; // Scale to 90%
+                        const cellHeight = (window.innerHeight / rows) * 0.9; // Scale to 90%
+
+                        table.querySelectorAll("th, td").forEach(cell => {
+                            cell.style.width = `${cellWidth}px`;
+                            cell.style.height = `${cellHeight}px`;
+                        });
+                    });
+                }
+            }
+
+            /**
+             * Switch between sheets for smooth pagination
+             */
+/**
+ * Switch between sheets for smooth pagination with countdown logging
+ */
+ let countdownInterval = null; // Track countdown interval
+
+/**
+ * Switch between sheets for smooth pagination with countdown logging
+ */
+function showNextSheet() {
+    if (!containers.length) return; // Stop if no sheets are available
+
+    console.log("Displaying page:", currentIndex);
+    
+    // Toggle visibility
+    containers.forEach((c, index) => {
+        c.classList.toggle("active", index === currentIndex);
+        if (index === currentIndex) {
+            adjustScale(c);
+        }
+    });
+
+    // Get duration for the current page
+    const duration = pagesInput[currentIndex] || defaultDuration;
+    
+    // Clear any existing countdown interval
+    if (countdownInterval) clearInterval(countdownInterval);
+
+    let countdown = duration;
+    console.log(`Switching in ${countdown} seconds...`);
+
+    // Countdown log every second
+    countdownInterval = setInterval(() => {
+        countdown--;
+        console.log(`Time left: ${countdown} seconds`);
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            currentIndex = (currentIndex + 1) % containers.length;
+            showNextSheet(); // Only call after countdown ends
+        }
+    }, 1000); // Run every second
+}
+
+function showCurrentSheet() {
+    if (!containers.length) return; // Stop if no sheets are available
+
+    console.log("Re-displaying current page:", currentIndex);
+
+    // Toggle visibility based on the current index
+    containers.forEach((c, index) => {
+        c.classList.toggle("active", index === currentIndex);
+        if (index === currentIndex) {
+            adjustScale(c);
+        }
+    });
+}
+
+
+
+            /**
+             * Merge cells containing '{$...$}' in the same row if values match
+             */
+            function mergeSimilarCells() {
+                const tables = container.querySelectorAll("table");
+
+                tables.forEach(table => {
+                    Array.from(table.rows).forEach(row => {
+                        let prevCell = null;
+                        let colspan = 1;
+
+                        Array.from(row.cells).forEach((cell, index) => {
+                            if (/\{\$.*?\$\}/.test(cell.textContent)) {
+                                const trimmedContent = cell.textContent.replace(/\{\$|\$\}/g, "");
+                                cell.textContent = trimmedContent; // Trim content inside the cell
+
+                                if (prevCell && prevCell.textContent === trimmedContent) {
+                                    colspan++;
+                                    cell.style.display = "none"; // Hide duplicate cell
+                                    prevCell.colSpan = colspan; // Adjust colspan of the previous cell
+                                } else {
+                                    prevCell = cell;
+                                    colspan = 1; // Reset colspan
+                                }
+                            } else {
+                                prevCell = null; // Reset for non-matching cells
+                                colspan = 1;
+                            }
+                        });
+                    });
+                });
+            }
+
+            /**
+             * Dynamically append new DOM elements only if fetched data changes
+             */
+            // function updateSheets() {
+            //     console.log("Checking for changes...456");
+
+            //     // Compare the current server data against the fetched cache
+            //     if (JSON.stringify(fetchResponse) === JSON.stringify(tempSheet)) {
+            //         console.log("No changes detected.");
+            //         return; // Skip rendering if no data change
+            //     }
+
+            //     // console.log("Detected change. Updating DOM...");
+
+            //     // Update DOM selectively
+            //     container.innerHTML = "";
+            //     fetchResponse.forEach(sheet => {
+            //         const div = document.createElement("div");
+            //         div.classList.add("pagination-container");
+            //         div.innerHTML = sheet.data;
+            //         container.appendChild(div);
+            //     });
+
+            //     containers = Array.from(container.querySelectorAll(".pagination-container"));
+            //     tempSheet = fetchResponse;
+
+            //     mergeSimilarCells();
+
+            //     if (containers.length) {
+            //         showNextSheet();
+            //     }
+            // }
+
+            function updateSheets() {
+                console.log("Checking for changes...");
+
+                // Compare the current server data against the fetched cache
+                if (JSON.stringify(fetchResponse) === JSON.stringify(tempSheet)) {
+                    console.log("No changes detected.");
+                    return; // Skip rendering if no data change
+                }
+
+                console.log("Detected change. Updating DOM...");
+
+                // Update DOM selectively
+                container.innerHTML = "";
+                fetchResponse.forEach(sheet => {
+                    const div = document.createElement("div");
+                    div.classList.add("pagination-container");
+                    div.innerHTML = sheet.data;
+                    container.appendChild(div);
+                });
+
+                containers = Array.from(container.querySelectorAll(".pagination-container"));
+                tempSheet = fetchResponse;
+
+                mergeSimilarCells();
+
+                if (containers.length && currentIndex >= containers.length) {
+                    currentIndex = 0; // Reset only if current index is out of bounds
+                }
+
+                    // Start pagination only if not already running
+                    if (!countdownInterval) {
+                        showNextSheet();
+                    }
+                    showCurrentSheet()
+            }
+
+            /** 
+             * Poll server for data
+             */
+            function fetchSheetData() {
+                console.log("Fetching from server...");
+                fetch('/update')
+                    .then(response => response.ok ? response.json() : [])
+                    .then(data => {
+                        if (Array.isArray(data) && data.length > 0) { // Ensure data is valid before updating
+                            fetchResponse = data;
+                            updateSheets();
+                        } else {
+                            console.warn("No new valid data received, keeping old data.");
+                        }
+                     })
+                    .catch(err => console.error("Error fetching data", err));
+            }
+
+            // Handle window resizing
+            window.addEventListener("resize", function () {
+                const activeContainer = document.querySelector('.pagination-container.active');
+                adjustScale(activeContainer);
+            });
+
+            // Poll server data every 2 seconds
+            setInterval(fetchSheetData, 2000);
+
+            // Initial fetch to populate the screen
+            fetchSheetData();
+        });      
+
+    </script>
+</body>
+
+</html>

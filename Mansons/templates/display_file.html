@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f4a460;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .merged-cell {
+            background-color: #ffe4c4;
+            font-style: italic;
+        }
+
+        .pagination-container {
+            display: none;
+        }
+
+        .pagination-container.active {
+            display: block;
+        }
+
+        .sheet-title {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-download {
+            display: block;
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        .btn-pause {
+            margin: 10px 0;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const paginationDuration = 5; // Duration in seconds
+            const containers = document.querySelectorAll(".pagination-container");
+            let currentIndex = 0;
+            let intervalId;  // To store the interval ID for controlling the interval
+
+            // Function to switch to the next sheet
+            function showNextSheet() {
+                containers.forEach((container, index) => {
+                    container.classList.toggle("active", index === currentIndex);
+                });
+                currentIndex = (currentIndex + 1) % containers.length;
+            }
+
+            // Start the pagination
+            function startPagination() {
+                if (containers.length > 0) {
+                    intervalId = setInterval(showNextSheet, paginationDuration * 1000);
+                    showNextSheet();  // Show the first sheet initially
+                } else {
+                    // If no sheets, show a fallback message
+                    document.body.innerHTML = `
+                        <div class="container mt-4">
+                            <h1>Excel Viewer</h1>
+                            <p class="text-danger">No sheets available to display.</p>
+                        </div>`;
+                }
+            }
+
+            // Pause the pagination
+            function pausePagination() {
+                clearInterval(intervalId);  // Clear the interval to stop switching sheets
+            }
+
+            // Show the pause button and handle the pause functionality
+            const pauseButton = document.getElementById("pauseButton");
+            if (pauseButton) {
+                pauseButton.addEventListener("click", function () {
+                    if (pauseButton.textContent === "Pause") {
+                        pausePagination();
+                        pauseButton.textContent = "Resume";  // Change button text to "Resume"
+                    } else {
+                        startPagination();
+                        pauseButton.textContent = "Pause";  // Change button text back to "Pause"
+                    }
+                });
+            }
+
+            // Start pagination
+            startPagination();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <h1>Display Preview Screen</h1>
+        <!-- <h3>File: {{ file_name }}</h3> -->
+        <p><b>Total Sheets:</b> {{ sheet_count }}</p>
+        <!-- Pause/Resume Button -->
+        <button id="pauseButton" class="btn btn-warning btn-pause">Pause</button>
+        {% for sheet in sheet_data %}
+        <div class="pagination-container">
+            <div class="sheet-title">
+                <h4>Sheet: {{ sheet.name }}</h4>
+            </div>
+            {{ sheet.data|safe }}
+        </div>
+        {% endfor %}
+    </div>
+</body>
+
+</html>

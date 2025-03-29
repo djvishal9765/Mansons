@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changes in the features of the mansonss</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #ffffff;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            height: 100%;
+            table-layout: fixed;
+            transform-origin: center;
+        }
+
+        th,
+        td {
+            border: 0;
+            text-align: center;
+            overflow: hidden;
+            color: #000;
+            transition: font-size 0.2s ease;
+        }
+
+        th {
+            background-color: #00ff2a;
+            font-weight: bold;
+        }
+
+        .pagination-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .pagination-container.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: scale(var(--scale, 1));
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+    <input hidden id="pages" value="{{pages}}">
+    <div class="container" id="sheet-container">
+        <!-- Dynamically loaded sheets will be added here -->
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const paginationDuration = 5; // Seconds for pagination interval
+            const container = document.getElementById("sheet-container");
+            const pagesInput = document
+                .getElementById("pages")
+                .value.replace(/[\[\]'"]/g, '') // Remove unwanted characters like brackets and quotes
+                .split(',')
+                .map(Number); // Convert string values to numbers
+            let tempSheet = []; // Cache for fetched data
+            let containers = []; // DOM elements for pagination
+            let currentIndex = 0; // Pagination index
+            let fetchResponse = []; // Latest fetched server response
+            const defaultDuration = 5; // Default duration in seconds
+
+            //Voice object shall contain "{"VoiceStacks":[002*-Credit Society-1,003*-Credit Society-1,004-Credit Society-1]}"
+            console.log("Page durations:", pagesInput);
+
+            /**
+             * Dynamically calculate scale for resizing
+             */
+            function adjustScale(container) {
+                if (container) {
+                    const tables = container.querySelectorAll("table");
+
+                    tables.forEach(table => {
+                        const rows = table.rows.length;
+                        const columns = table.rows[0]?.cells.length || 1;
+
+                        const cellWidth = window.innerWidth / columns;
+                        const cellHeight = window.innerHeight / rows;
+
+                        table.querySelectorAll("th, td").forEach(cell => {
+                            cell.style.width = `${cellWidth}px`;
+                            cell.style.height = `${cellHeight}px`;
+                        });
+                    });
+                }
+            }
+
+            /**
+             * Switch between sheets for smooth pagination
+             */
+             function showNextSheet() {
+                console.log("Change page:", currentIndex); // Corrected from 'print' to 'console.log'
+                if (containers.length) {
+                    containers.forEach((c, index) => {
+                        c.classList.toggle("active", index === currentIndex);
+
+                        if (index === currentIndex) {
+                            adjustScale(c);
+                        }
+                    });
+
+                    // Schedule the next page based on the duration for the current page
+                    
+                    const duration = pagesInput[currentIndex] || 5; // Default to 5 seconds if no duration is provided
+                    // timeoutHandle = setTimeout(showNextSheet, duration * 1000);
+                    // delayFunction(() => showNextSheet(), duration * 1000);
+                    console.log("Duration:", duration); // Corrected from 'print' to 'console.log'
+                    // setInterval(showNextSheet(), duration * 1000);
+                    delayWithCounter(duration, () => {
+                        console.log("Callback executed after threshold!");
+                        currentIndex = (currentIndex + 1) % containers.length;
+                        showNextSheet();
+                    });
+                    console.log("OK"); // Corrected from 'print' to 'console.log'
+                }
+            }
+            function delayWithCounter(threshold, callback) {
+                let counter = 0; // Initialize the counter
+
+                const interval = setInterval(() => {
+                    counter += 1; // Increment the counter every second
+                    console.log(`Counter: ${counter}`); // Log the counter value for debugging
+
+                    if (counter >= threshold) {
+                        clearInterval(interval); // Stop the interval when threshold is reached
+                        console.log(`Threshold reached: ${threshold}`);
+                        callback(); // Execute the callback function
+                    }
+                }, 1000); // Run every 1000ms (1 second)
+            }
+
+
+            /**
+             * Dynamically append new DOM elements only if fetched data changes
+             */
+            
+            function updateSheets() {
+                console.log("Checking for changes...123");
+
+                // // Compare the current server data against the fetched cache
+                // if (JSON.stringify(fetchResponse) === JSON.stringify(tempSheet)) {
+                //     console.log("No changes detected.");
+                //     return; // Skip rendering if no data change
+                // }
+
+                // console.log("Detected change. Updating DOM...");
+                
+                // Update DOM selectively
+                container.innerHTML = ""; // Clear only for safe DOM replacement
+                fetchResponse.forEach(sheet => {
+                    const div = document.createElement("div");
+                    div.classList.add("pagination-container");
+                    div.innerHTML = sheet.data;
+                    container.appendChild(div);
+                });
+
+                containers = Array.from(container.querySelectorAll(".pagination-container"));
+                tempSheet = fetchResponse; // Update cache with new fetched data
+                if (containers.length) {
+                    // currentIndex = 0; // Reset pagination to the first state on new data
+                    showNextSheet();
+                }
+            }
+
+            /**
+             * Poll server for data
+             */
+            function fetchSheetData() {
+                console.log("Fetching from server...");
+                fetch('/update')
+                    .then(response => response.ok ? response.json() : [])
+                    .then(data => {
+                        fetchResponse = data;
+                        updateSheets();
+                    })
+                    .catch(err => console.error("Error fetching data", err));
+            }
+
+            // Handle window resizing
+            window.addEventListener("resize", function () {
+                const activeContainer = document.querySelector('.pagination-container.active');
+                adjustScale(activeContainer);
+            });
+
+            // Poll server data every 5 seconds
+            setInterval(fetchSheetData, 2000);
+
+            // Pagination loop
+            // setInterval(showNextSheet, paginationDuration * 1000);
+            // showNextSheet();
+
+            // Initial fetch to populate the screen
+            fetchSheetData();
+        });
+    </script>
+</body>
+
+</html>
